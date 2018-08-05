@@ -12,6 +12,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
 	"github.com/cloudflare/cfssl/signer/remote"
+	"github.com/letsencrypt/pkcs11key"
 )
 
 // Signer represents a universal signer which is both local and remote
@@ -33,6 +34,19 @@ type Root struct {
 // decides whether it has enough information to produce a signer.
 type localSignerCheck func(root *Root, policy *config.Signing) (signer.Signer, bool, error)
 
+//pkcs11Signer
+func pkcs11Signer() (signer.Signer, bool, error) {
+	//url := "pkcs11:model=SoftHSM%20v2;manufacturer=SoftHSM%20project;serial=9f8caa4af3120dc0;token=ZubaRock;slot-id=1930563008?module-path=/usr/local/Cellar/softhsm/2.4.0/lib/softhsm/libsofthsm2.so&pin-value=12345"
+	//pk11uri, _ := rfc7512.ParsePKCS11URI(url)
+	//signer, _ := rfc7512.LoadPKCS11Signer(pk11uri)
+	module := "/usr/local/Cellar/softhsm/2.4.0/lib/softhsm/libsofthsm2.so&pin-value=12345"
+	tokenLabel := "ZubaRock"
+	pin := "12345"
+	label := "CA Key"
+	signer := pkcs11key.NewPool(1, module, tokenLabel, pin, label)
+	return signer, true, nil
+}
+
 // fileBackedSigner determines whether a file-backed local signer is supported.
 func fileBackedSigner(root *Root, policy *config.Signing) (signer.Signer, bool, error) {
 	keyFile := root.Config["key-file"]
@@ -47,6 +61,7 @@ func fileBackedSigner(root *Root, policy *config.Signing) (signer.Signer, bool, 
 }
 
 var localSignerList = []localSignerCheck{
+	pkcs11Signer,
 	fileBackedSigner,
 }
 
@@ -57,7 +72,7 @@ func PrependLocalSignerToList(signer localSignerCheck) {
 
 func newLocalSigner(root Root, policy *config.Signing) (s signer.Signer, err error) {
 	// shouldProvide indicates whether the
-	// function *should* have produced a key. If
+	// function /*should* have produced a key. If
 	// it's true, we should use the signer and
 	// error returned. Otherwise, keep looking for
 	// signers.
