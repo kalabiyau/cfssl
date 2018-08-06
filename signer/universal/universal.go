@@ -2,7 +2,10 @@
 package universal
 
 import (
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/certdb"
@@ -33,6 +36,28 @@ type Root struct {
 // a localSignerCheck looks at the Config keys in the Root, and
 // decides whether it has enough information to produce a signer.
 type localSignerCheck func(root *Root, policy *config.Signing) (signer.Signer, bool, error)
+
+func loadRSAPublicKey(pubKeyFile string) *rsa.PublicKey {
+	x509Bytes, err := ioutil.ReadFile(pubKeyFile)
+	if err != nil {
+		// TODO: handle
+	}
+	block, _ := pem.Decode(x509Bytes)
+	cert, _ := x509.ParseCertificate(block.Bytes)
+	return cert.PublicKey.(*rsa.PublicKey)
+}
+
+func pkcs11Signer(root *Root, policy *config.Signing) (signer.Signer, bool, error) {
+	module := "/usr/local/Cellar/softhsm/2.4.0/lib/softhsm/libsofthsm2.so"
+	tokenLabel := "ZubaRock"
+	pin := "12345"
+	caFile := "/Users/kalabiyau/Desktop/yubikey_ssl_ca/yubico-internal-https-ca-crt.pem"
+	subCAFile := "/Users/kalabiyau/Desktop/yubikey_ssl_ca/yubico-internal-https-subca-Artem-crt.pem"
+	publicKey := loadRSAPublicKey(subCAFile)
+	config := pkcs11.Config{Module: module, Token: tokenLabel, PIN: pin, PublicKey: publicKey}
+	signer, err := pkcs11.New(caFile, policy, &config)
+	return signer, true, err
+}
 
 // fileBackedSigner determines whether a file-backed local signer is supported.
 func fileBackedSigner(root *Root, policy *config.Signing) (signer.Signer, bool, error) {
