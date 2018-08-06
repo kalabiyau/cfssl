@@ -2,7 +2,10 @@
 package universal
 
 import (
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/certdb"
@@ -34,14 +37,25 @@ type Root struct {
 // decides whether it has enough information to produce a signer.
 type localSignerCheck func(root *Root, policy *config.Signing) (signer.Signer, bool, error)
 
+func loadRSAPublicKey(pubKeyFile string) *rsa.PublicKey {
+	x509Bytes, err := ioutil.ReadFile(pubKeyFile)
+	if err != nil {
+		// TODO: handle me
+	}
+	block, _ := pem.Decode(x509Bytes)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	return cert.PublicKey.(*rsa.PublicKey)
+}
+
 //pkcs11Signer
 func pkcs11Signer(root *Root, policy *config.Signing) (signer.Signer, bool, error) {
 	module := "/usr/local/Cellar/softhsm/2.4.0/lib/softhsm/libsofthsm2.so"
 	tokenLabel := "ZubaRock"
 	pin := "12345"
-	label := "SubCa"
 	caFile := "/Users/kalabiyau/Desktop/yubikey_ssl_ca/yubico-internal-https-ca-crt.pem"
-	config := pkcs11.Config{Module: module, Token: tokenLabel, PIN: pin, Label: label}
+	subCAFile := "/Users/kalabiyau/Desktop/yubikey_ssl_ca/yubico-internal-https-subca-Artem-crt.pem"
+	publicKey := loadRSAPublicKey(subCAFile)
+	config := pkcs11.Config{Module: module, Token: tokenLabel, PIN: pin, PublicKey: publicKey}
 	signer, err := pkcs11.New(caFile, policy, &config)
 	return signer, true, err
 }
