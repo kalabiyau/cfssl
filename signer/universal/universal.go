@@ -12,6 +12,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
 	"github.com/cloudflare/cfssl/signer/remote"
+	"github.com/letsencrypt/pkcs11key"
 )
 
 // Signer represents a universal signer which is both local and remote
